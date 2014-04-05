@@ -7,7 +7,7 @@ any Arduino should be capable with the right external interfaces.
 
 As it stands, the track is a O-27 gauge track with two lines that connect together
 into a short straight track, i.e.:
-...
+```
 /------\
 |      |
 /----\ |
@@ -15,7 +15,7 @@ into a short straight track, i.e.:
 \----/ |
 |      |
 \------/
-...
+```
 The two points, or switches allow a train to change lines easily. Each line has
 six relays to control the power to a portion of a the track. Additionally, each
 approach to the points (of which there are four), has two sensors to detect a 
