@@ -31,10 +31,15 @@ int servoAPin = 2;
 int servoBPin = 3;
 Servo servoA;
 Servo servoB;
+boolean servoAUp = false;
+boolean servoBUp = false;
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 int relayPinStart = 31;
 boolean analogReadMode = false;
 
+#define SWITCH_TIME_MS 15000
+int swapTimeStart = 0;
+int swapTimeLastSec = 0;
 void setup(){
   Serial.begin(9600);
   // set up the LCD's number of columns and rows: 
@@ -71,7 +76,7 @@ void loop()
   
   if (key)
   {
-    menuProcessor(key);
+    menuProcessor(key, currtime);
   }
   
   
@@ -96,10 +101,35 @@ void loop()
       lastAdcTime = currtime;
     }
   }
+  
+  if (swapTimeStart > 0)
+  {
+    int diff = currtime - swapTimeStart;
+    if (diff > SWITCH_TIME_MS)
+    {
+      switchLine(1);
+      swapTimeStart = 0;
+      swapTimeLastSec = 0;
+    }
+    else
+    {
+      int sec = (SWITCH_TIME_MS - diff) / 1000;
+      if (swapTimeLastSec != sec)
+      {
+        String msg = "Swap A in ";
+        msg += sec;
+        msg += "s";
+        char buf[20];
+        msg.toCharArray(buf, 20); 
+        lcdPrintLine(1, buf);
+        swapTimeLastSec = sec;
+      }
+    }
+  }
 }
 
 
-void menuProcessor(char key)
+void menuProcessor(char key, int currtime)
 {
   switch (menuState)
   {
@@ -188,10 +218,82 @@ void menuProcessor(char key)
         else
           analogReadMode = true;
       }
-
+      else if (key == 'E')
+      {
+        if (menuInputPos == 0)
+        {
+          switchLine(2);
+          swapTimeStart = currtime;
+          swapTimeLastSec = 0;
+        }
+        else
+        {
+          int val = decodeMenuValue();
+          setTrainLine(val);
+          menuInputPos = 0;
+        }
+      }
       break;
   }  
   
+}
+
+void switchLine(int line)
+{
+  if (line < 1 || line > 2)
+  {
+    lcdPrintLine(0, "Line 1 or 2 only");
+    return;
+  }
+
+  if (line == 1)
+  {
+    if (servoAUp)
+    {          
+      lcdPrintLine(0, "Swap points A dn");
+      setServo(1, false);
+    }
+    else
+    { 
+      lcdPrintLine(0, "Swap points A up");
+      setServo(1, true);
+    }
+  }
+  else
+  {
+    if (servoBUp)
+    {          
+      lcdPrintLine(0, "Swap points B dn");
+      setServo(2, false);
+    }
+    else
+    { 
+      lcdPrintLine(0, "Swap points B up");
+      setServo(2, true);
+    }
+  }
+  lcdClearLine(1);
+}
+void setTrainLine(int line)
+{
+  if (line < 1 || line > 2)
+  {
+    lcdPrintLine(0, "Line 1 or 2 only");
+    return;
+  }
+
+  if (line == 1)
+  {
+     setServo(1, true);
+     setServo(2, true);
+     lcdPrintLine(0, "Line 1 up set");
+  }
+  else
+  {
+    setServo(1, false);
+    setServo(2, false);
+    lcdPrintLine(0, "Line 2 down set");
+  }          
 }
 int decodeMenuValue()
 {
@@ -206,7 +308,7 @@ int decodeMenuValue()
   }
   return result;
 }
-void setServo(int servo, boolean pos)
+void setServo(int servo, boolean posUp)
 {
   if (servo < 1 || servo > 2)
   {
@@ -214,20 +316,23 @@ void setServo(int servo, boolean pos)
     return;
   }
     
-  int val = pos ? 1 : 0;
+  int valUp = posUp ? 1 : 0;
     
   int mapResult = 0;
   if (servo == 1)  
   {
-    mapResult = map(val, 0, 1, 0, 171);
+    mapResult = map(valUp, 0, 1, 2, 174);
     servoA.write(mapResult);
+    servoAUp = posUp;
   }
   else
   {
-    mapResult = map(val, 0, 1, 173, 2);
+    mapResult = map(valUp, 0, 1, 176, 6);
     servoB.write(mapResult);
+    servoBUp = posUp;
   }
-        
+  swapTimeStart = 0;
+  swapTimeLastSec = 0;  
 }
 void oneRelay(int index, int value)
 {
